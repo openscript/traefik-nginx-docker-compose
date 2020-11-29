@@ -39,14 +39,9 @@ services:
     container_name: nginx
     networks:
       - proxy
-    ports:
-      - "8888:80"
     volumes:
       - "./website:/usr/share/nginx/html:ro"
       - "./nginx.conf:/etc/nginx/nginx.conf:ro"
-    environment:
-      - NGINX_HOST=example.com
-      - NGINX_PORT=80
     labels:
       - "traefik.enable=true"
       - "traefik.http.middlewares.nginx-redirect-https.redirectscheme.scheme=https"
@@ -57,4 +52,4 @@ services:
       - "traefik.http.routers.nginx-https.entrypoints=https"
       - "traefik.http.routers.nginx-https.tls.certresolver=defaultResolver"
       - "traefik.http.routers.nginx-https-service=nginx-http-service"
-      - "traefik.http.services.nginx-http-service.loadbalancer.server.port=8888"
+      - "traefik.http.services.nginx-http-service.loadbalancer.server.port=80"
