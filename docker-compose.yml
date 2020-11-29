@@ -1,0 +1,61 @@
+version: "3.8"
+
+networks:
+  proxy:
+    name: proxy
+
+volumes:
+  letsencrypt:
+    driver: local
+
+services:
+  traefik:
+    image: traefik
+    container_name: traefik
+    networks:
+      - proxy
+    ports:
+      - "22:22"
+      - "80:80"
+      - "443:443"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard-https.rule=Host(`proxy.example.com`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
+      - "traefik.http.routers.dashboard-https.entrypoints=https"
+      - "traefik.http.routers.dashboard-https.tls.certresolver=defaultResolver"
+      - "traefik.http.routers.dashboard-https.service=api@internal"
+      - "traefik.http.routers.dashboard-https.middlewares=auth"
+      - "traefik.http.middlewares.auth.basicauth.users=user:password"
+      - "traefik.http.routers.dashboard-http.rule=Host(`proxy.example.com`)"
+      - "traefik.http.routers.dashboard-http.entrypoints=http"
+      - "traefik.http.routers.dashboard-http.middlewares=https_redirect"
+      - "traefik.http.middlewares.https_redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.https_redirect.redirectscheme.permanent=true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik.yml:/traefik.yml
+      - letsencrypt:/letsencrypt
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    networks:
+      - proxy
+    ports:
+      - "8888:80"
+    volumes:
+      - "./website:/usr/share/nginx/html:ro"
+      - "./nginx.conf:/etc/nginx/nginx.conf:ro"
+    environment:
+      - NGINX_HOST=example.com
+      - NGINX_PORT=80
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.middlewares.nginx-redirect-https.redirectscheme.scheme=https"
+      - "traefik.http.routers.nginx-http.middlewares=nginx-redirect-https"
+      - "traefik.http.routers.nginx-http.rule=Host(`example.com`)"
+      - "traefik.http.routers.nginx-http.entrypoints=http"
+      - "traefik.http.routers.nginx-https.rule=Host(`example.com`)"
+      - "traefik.http.routers.nginx-https.entrypoints=https"
+      - "traefik.http.routers.nginx-https.tls.certresolver=defaultResolver"
+      - "traefik.http.routers.nginx-https-service=nginx-http-service"
+      - "traefik.http.services.nginx-http-service.loadbalancer.server.port=8888"
